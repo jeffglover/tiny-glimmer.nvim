@@ -27,15 +27,16 @@ local AnimationEffect = require("tiny-glimmer.glimmer_animation")
 ---Creates a new TextAnimation instance
 ---@param effect any The animation effect implementation to use
 ---@param opts table Configuration options
+---@param buf_id? number Buffer ID for the animation
+---@param win_id? number Window ID for the animation
 ---@return TextAnimation The created TextAnimation instance
-function TextAnimation.new(effect, opts)
+function TextAnimation.new(effect, opts, buf_id, win_id)
   if not opts.base then
     error("opts.base is required")
   end
 
   local self = setmetatable({}, TextAnimation)
 
-  self.buffer = vim.api.nvim_get_current_buf()
   self.virtual_text_priority = opts.virtual_text_priority or 128
   self.event_type = opts.event and opts.event.regtype or vim.v.event.regtype
   self.operation = vim.v.event.operator
@@ -66,11 +67,12 @@ function TextAnimation.new(effect, opts)
     })
   end
 
-  self.animation = AnimationEffect.new(effect, animation_opts)
+  self.animation = AnimationEffect.new(effect, animation_opts, buf_id, win_id)
+  local window = self.animation.window
 
   self.viewport = {
-    start_line = vim.fn.line("w0") - 1,
-    end_line = vim.fn.line("w$"),
+    start_line = vim.fn.line("w0", window) - 1,
+    end_line = vim.fn.line("w$", window),
   }
 
   return self
@@ -139,7 +141,7 @@ local function apply_hl(self, line)
   local hl_group = self.animation:get_hl_group()
 
   if self.cursor_line_enabled then
-    local cursor_position = vim.api.nvim_win_get_cursor(0)
+    local cursor_position = vim.api.nvim_win_get_cursor(self.animation.window)
     if cursor_position[1] - 1 == line_index then
       hl_group = self.animation:get_overwrite_hl_group()
     end
@@ -152,7 +154,7 @@ local function apply_hl(self, line)
     hl_group = hl_group,
     hl_mode = "blend",
     priority = self.virtual_text_priority,
-  }, self.buffer)
+  }, self.animation.buffer)
 end
 
 ---Starts the text animation
@@ -160,7 +162,7 @@ end
 ---@param on_complete function Callback function when animation is complete
 function TextAnimation:start(refresh_interval_ms, on_complete)
   local length = self.animation.range.end_col - self.animation.range.start_col
-  local buf = self.buffer
+  local buf = self.animation.buffer
 
   self.animation:start(refresh_interval_ms, length, {
     on_update = function(update_progress)
@@ -168,7 +170,7 @@ function TextAnimation:start(refresh_interval_ms, on_complete)
       if not vim.api.nvim_buf_is_valid(buf) then
         return
       end
-      
+
       -- Clear previous animation state
       vim.api.nvim_buf_clear_namespace(
         buf,

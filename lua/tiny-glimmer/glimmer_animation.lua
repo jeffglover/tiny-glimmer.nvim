@@ -9,6 +9,7 @@
 ---@field overwrite_to_color string|nil Overwrite to color
 ---@field reserved_ids table Reserved namespace IDs
 ---@field index_reserved_ids number Index of the reserved namespace IDs
+---@field window number Window ID for the animation
 ---@field buffer number Buffer ID for the animation
 ---@field default_effect_settings table Cached copy of effect settings
 ---@field loop boolean Whether the animation should loop
@@ -35,8 +36,11 @@ local animation_pool_id = 0
 
 ---Creates a new animation effect instance
 ---@param effect Effect The animation effect implementation to use
+---@param opts table Configuration options
+---@param buf_id? number Buffer ID for the animation
+---@param win_id? number Window ID for the animation
 ---@return GlimmerAnimation The created animation instance
-function GlimmerAnimation.new(effect, opts)
+function GlimmerAnimation.new(effect, opts, buf_id, win_id)
   if not opts.range then
     error("TinyGlimmer: range is required in opts")
   end
@@ -64,7 +68,8 @@ function GlimmerAnimation.new(effect, opts)
   self.reserved_ids = {}
   self.index_reserved_ids = 1
 
-  self.buffer = api.nvim_get_current_buf()
+  self.window = win_id or api.nvim_get_current_win()
+  self.buffer = buf_id or api.nvim_get_current_buf()
 
   animation_pool_id = animation_pool_id + 1
 

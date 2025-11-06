@@ -15,8 +15,10 @@ local namespace_id_pool = require("tiny-glimmer.namespace_id_pool")
 --- Creates anew LineAnimation Instance
 ---@param effect any The animiation effect implementation to use
 ---@param opts table Configuration options
+---@param buf_id? number Buffer ID for the animation
+---@param win_id? number Window ID for the animation
 ---@return LineAnimation The created LineAnimation instance
-function LineAnimation.new(effect, opts)
+function LineAnimation.new(effect, opts, buf_id, win_id)
   local self = setmetatable({}, LineAnimation)
 
   if not opts.base then
@@ -45,7 +47,7 @@ function LineAnimation.new(effect, opts)
     })
   end
 
-  self.animation = AnimationEffect.new(effect, animation_opts)
+  self.animation = AnimationEffect.new(effect, animation_opts, buf_id, win_id)
   self.reserved_ids = {}
 
   return self
@@ -55,7 +57,7 @@ local function apply_hl(self, line)
   local line_index = self.animation.range.start_line
   local hl_group = self.animation:get_hl_group()
   if self.cursor_line_enabled then
-    local cursor_position = vim.api.nvim_win_get_cursor(0)
+    local cursor_position = vim.api.nvim_win_get_cursor(self.animation.window)
 
     if cursor_position[1] - 1 == line_index then
       hl_group = self.animation:get_overwrite_hl_group()
@@ -69,7 +71,7 @@ local function apply_hl(self, line)
     end_row = line,
     hl_group = hl_group,
     priority = self.virtual_text_priority,
-  })
+  }, self.animation.buffer)
 end
 
 function LineAnimation:start(refresh_interval_ms, on_complete)
@@ -78,7 +80,7 @@ function LineAnimation:start(refresh_interval_ms, on_complete)
   self.animation:start(refresh_interval_ms, length or 1, {
     on_update = function(update_progress)
       vim.api.nvim_buf_clear_namespace(
-        0,
+        self.animation.buffer,
         namespace,
         self.animation.range.start_line,
         self.animation.range.start_line + 1
